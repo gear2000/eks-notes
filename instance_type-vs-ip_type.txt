@@ -1,0 +1,153 @@
+# ALB Target Types in AWS EKS: Instance vs IP
+
+In AWS EKS, the **AWS Application Load Balancer (ALB)** can route traffic to Kubernetes clusters using two target types:
+
+1. **Instance Target Type**: ALB routes traffic to the **node (instance) IP and port**.
+2. **IP Target Type**: ALB routes traffic directly to the **pod IPs**.
+
+---
+
+## Key Differences Between ALB with Instance and IP Target Types
+
+| **Feature**               | **Instance Target Type**                                           | **IP Target Type**                                              |
+|---------------------------|--------------------------------------------------------------------|-----------------------------------------------------------------|
+| **Routing**               | ALB routes traffic to the node (instance) IP.                     | ALB routes traffic directly to pod IPs.                        |
+| **Traffic Flow**          | Traffic is forwarded from the node to the target pod using kube-proxy. | ALB skips the node layer and routes directly to pods.           |
+| **Performance**           | Slightly slower due to an extra hop (node-to-pod).                | Faster, as traffic directly reaches pods.                      |
+| **Pod Scalability**       | Pods are indirectly reachable. Limited by the nodes' capacity.    | Pods scale independently.                                       |
+| **Networking**            | Requires nodes to register with the ALB target group.             | Requires pods to have routable IPs (e.g., AWS VPC CNI).         |
+| **Use Case**              | Useful for legacy setups or CNIs that don’t support pod IPs.      | Recommended for most modern Kubernetes deployments.             |
+
+---
+
+## How Traffic Flows
+
+### **1. ALB with Instance Target Type**
+1. Incoming traffic reaches the ALB.
+2. ALB routes traffic to the node's IP and port.
+3. The node forwards traffic to the appropriate pod via **kube-proxy**.
+
+**Workflow:**
+```plaintext
+[Client] --> [ALB] --> [Node (Instance)] --> [Pod (via kube-proxy)]
+```
+
+---
+
+### **2. ALB with IP Target Type**
+1. Incoming traffic reaches the ALB.
+2. ALB routes traffic directly to the pod IP.
+
+**Workflow:**
+```plaintext
+[Client] --> [ALB] --> [Pod]
+```
+
+---
+
+## Example Kubernetes Manifests
+
+### **1. ALB with Instance Target Type**
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alb-instance-ingress
+  annotations:
+    kubernetes.io/ingress.class: "alb"
+    alb.ingress.kubernetes.io/target-type: "instance" # Targets the node IP
+    alb.ingress.kubernetes.io/scheme: "internet-facing"
+spec:
+  rules:
+  - host: example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: my-service
+            port:
+              number: 80
+```
+
+---
+
+### **2. ALB with IP Target Type**
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alb-ip-ingress
+  annotations:
+    kubernetes.io/ingress.class: "alb"
+    alb.ingress.kubernetes.io/target-type: "ip" # Targets pod IPs directly
+    alb.ingress.kubernetes.io/scheme: "internet-facing"
+spec:
+  rules:
+  - host: example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: my-service
+            port:
+              number: 80
+```
+
+---
+
+## Use Case Scenarios
+
+### **Instance Target Type**
+- **When to Use**:
+  - Legacy Kubernetes clusters without a CNI that supports pod-level IP routability.
+  - Simpler or compatibility-focused setups.
+- **Limitations**:
+  - Adds an extra hop (node → pod), which can increase latency.
+  - Tied to node scaling; if node capacity is reached, traffic may be throttled.
+
+---
+
+### **IP Target Type**
+- **When to Use**:
+  - Modern Kubernetes clusters with a CNI like AWS VPC CNI that provides pod-level IPs.
+  - Need better performance and scalability (direct routing to pods).
+- **Advantages**:
+  - Eliminates the extra hop, leading to faster routing.
+  - Scales seamlessly with pod autoscaling.
+
+---
+
+## Visual Representation
+
+### **1. ALB with Instance Target Type**
+```plaintext
+[Client] --> [ALB] --> [Node (Instance)] --> [Pod (via kube-proxy)]
+```
+
+### **2. ALB with IP Target Type**
+```plaintext
+[Client] --> [ALB] --> [Pod]
+```
+
+---
+
+## Summary
+
+| **Feature**               | **Instance Target Type**                                           | **IP Target Type**                                              |
+|---------------------------|--------------------------------------------------------------------|-----------------------------------------------------------------|
+| **Routing**               | ALB routes traffic to the node (instance) IP.                     | ALB routes traffic directly to pod IPs.                        |
+| **Performance**           | Slightly slower due to an extra hop (node-to-pod).                | Faster, as traffic directly reaches pods.                      |
+| **Networking**            | Requires nodes to register with the ALB target group.             | Requires pods to have routable IPs (e.g., AWS VPC CNI).         |
+| **Use Case**              | Useful for legacy setups or CNIs that don’t support pod IPs.      | Recommended for most modern Kubernetes deployments.             |
+
+---
+
+**Conclusion**:
+- Use **IP Target Type** for modern Kubernetes deployments where performance and scalability are a priority.
+- Use **Instance Target Type** for legacy setups or compatibility scenarios.

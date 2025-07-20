@@ -1,0 +1,131 @@
+# kubectl Commands for Managing Resources
+
+## General Commands
+- kubectl get - list resources
+- kubectl describe - show detailed information about a resource
+- kubectl logs - print the logs from a container in a pod
+- kubectl exec - execute a command on a container in a pod
+
+## Working with Deployments
+- kubectl create deployment kubernetes-bootcamp --image=gcr.io/google-samples/kubernetes-bootcamp:v1
+- kubectl get pods
+- kubectl describe pods
+- kubectl get svc
+- kubectl get deployments
+- kubectl logs kubernetes-bootcamp-69fbc6f4cf-d92tl
+- kubectl exec kubernetes-bootcamp-69fbc6f4cf-d92tl -- env
+
+## Exposing Deployments
+- kubectl expose deployment/kubernetes-bootcamp --type="NodePort" --port 8080
+- kubectl describe services/kubernetes-bootcamp
+- kubectl describe deployment
+
+## Labeling Resources
+- kubectl get pods -l run=kubernetes-bootcamp
+- kubectl get services -l run=kubernetes-bootcamp
+- kubectl label pod kubernetes-bootcamp-69fbc6f4cf-zdmf9 test=v1
+- kubectl get pods -l app=v1
+
+## Scaling
+- kubectl get rs
+- kubectl scale deployments/kubernetes-bootcamp --replicas=4
+- kubectl get rs
+- kubectl get deployments
+- kubectl get pods -o wide
+
+## Updating Images
+- kubectl set image deployments/kubernetes-bootcamp kubernetes-bootcamp=jocatalin/kubernetes-bootcamp:v2
+
+## Nodes, Services, Pods
+- kubectl get nodes
+- kubectl get svc
+- kubectl get pod -o custom-columns=Name:metadata.name,Host:spec.nodeName,PodIP:status.podIP
+- kubectl get pv
+
+## Database Commands
+- kubectl exec postgres-6c4dd88d5b-jjjwt --stdin --tty -- createdb -U admin books
+- kubectl exec postgres-6c4dd88d5b-jjjwt --stdin --tty -- psql -U admin
+
+## Environment Variables
+- export DB_NAME=$(kubectl get pod -l service=postgres -o jsonpath="{.items[0].metadata.name}")
+- export POD_NAME=$(kubectl get pod -l app=flask -o jsonpath="{.items[0].metadata.name}")
+- kubectl exec $POD_NAME --stdin --tty -- python manage.py recreate_db
+- kubectl exec $POD_NAME --stdin --tty -- python manage.py seed_db
+- kubectl exec $DB_NAME --stdin --tty -- psql -U sample
+
+## Scaling Deployments
+- kubectl scale deployment flask --replicas=2
+
+## Cron Jobs
+- kubectl apply -f cron_hello.yml
+- kubectl get cronjob
+- kubectl describe cronjob cron-test
+- kubectl edit cronjob test
+
+---
+
+# Administration
+## Namespaces
+- kubectl describe namespace dev
+- kubectl create serviceaccount namespace-creator
+- kubectl get serviceaccount
+- kubectl describe serviceaccount namespace-creator
+- kubectl describe secret namespace-creator-token-mz42d
+- kubectl config set-context --current --namespace=test
+
+---
+
+# Pods
+- kubectl apply -f my-first-pod.yaml
+- kubectl get pod
+- kubectl describe pod my-first-pod
+- kubectl logs -f my-first-pod
+- kubectl delete pod my-first-pod
+
+---
+
+# Scratch
+- kubectl rollout status -n default deploy/test-app-expressjs-k8s
+- kubectl port-forward -n default deploy/test-app-expressjs-k8s 8088:8080
+- kubectl get svc
+- kubectl config view
+- kubectl config current-context
+- kubectl config use-context context-name
+
+---
+
+# Installation for AWS EKS
+- aws eks --region <region-code> update-kubeconfig --name <cluster_name>
+- aws eks --region us-east-1 update-kubeconfig --name my-cluster
+
+---
+
+# Ingress-Nginx Controller
+- kubectl get pods -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx --watch
+- kubectl patch svc hello-kubernetes -p '{"spec": {"type": "LoadBalancer"}}'
+- kubectl patch svc hello-kubernetes -p '{"spec": {"type": "ClusterIP"}}'
+
+---
+
+# NLB/Nginx-Egress Controller
+- wget https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-0.32.0/deploy/static/provider/aws/deploy.yaml
+- mv deploy.yaml aws-nlb-deploy.yaml
+- wget https://raw.githubusercontent.com/cornellanthony/nlb-nginxIngress-eks/master/apple.yaml
+- wget https://raw.githubusercontent.com/cornellanthony/nlb-nginxIngress-eks/master/banana.yaml
+- openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout tls.key -out tls.crt -subj "/CN=app-native.com/O=app-native.com"
+- kubectl create secret tls tls-secret --key tls.key --cert tls.crt
+
+## Example Ingress
+- wget https://raw.githubusercontent.com/cornellanthony/nlb-nginxIngress-eks/master/example-ingress.yaml
+- mv example-ingress.yaml apple-bananna-ingress.yaml
+
+## Modify Example Ingress
+Edit the file `apple-bananna-ingress.yaml`:
+```yaml
+spec:
+  tls:
+  - hosts:
+    - app-native.com
+    secretName: tls-secret
+  rules:
+  - host: k8-example.app-native.com
